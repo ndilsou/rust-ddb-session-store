@@ -27,11 +27,12 @@ async fn main() -> Result<(), E> {
     );
 
     let mut router = AlbRouter::new();
+    router.insert(Method::GET, "/", |r| api::health_check(&store, r))?;
     router.insert(Method::GET, "/sessions", |r| api::get_session(&store, r))?;
     router.insert(Method::POST, "/sessions", |r| {
         api::create_session(&store, r)
     })?;
-    router.insert(Method::DELETE, "/sessions/:user_id", |r| {
+    router.insert(Method::DELETE, "/sessions/:username", |r| {
         api::delete_user_sessions(&store, r)
     })?;
 
