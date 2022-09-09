@@ -1,9 +1,11 @@
 use std::error;
 use std::fmt;
 
+use serde::Deserialize;
 use aws_sdk_dynamodb::types::SdkError;
+use serde::Serialize;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct AppError {
     details: String,
 }

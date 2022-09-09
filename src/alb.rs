@@ -5,7 +5,7 @@ use http::{Method, Response, StatusCode};
 use lambda_http::{Request, RequestExt};
 use matchit::{InsertError, Router};
 use serde_json::json;
-use tracing::info;
+use tracing::{info, debug};
 
 use crate::utils::response;
 
@@ -71,7 +71,6 @@ impl<'c> AlbRouter<'c> {
             request.uri(),
             request.raw_http_path()
         );
-        info!("path_parameters: {:?}", request.path_parameters());
 
         let not_found_handler = &self.not_found;
         let router = match self.routers.get(request.method()) {
@@ -79,15 +78,31 @@ impl<'c> AlbRouter<'c> {
             None => return not_found_handler(request),
         };
 
-        info!("router found for method {}", request.method());
         let raw_path = request.raw_http_path();
-        info!("raw path for matching {}", raw_path);
+        let user_agent: String = request
+            .headers()
+            .get(http::header::USER_AGENT)
+            .map(|h| h.to_str().unwrap().to_owned())
+            .unwrap_or(String::from("N/A"));
+        let host: String = request
+            .headers()
+            .get(http::header::HOST)
+            .map(|h| h.to_str().unwrap().to_owned())
+            .unwrap_or(String::from("N/A"));
+            
+        info!(
+            "[{} {}] [{} {}]",
+            user_agent,
+            host,
+            request.method(),
+            raw_path
+        );
         let matched = match router.at(&raw_path) {
             Ok(matched) => matched,
             Err(_) => return not_found_handler(request),
         };
 
-        info!("match found!");
+        debug!("match found!");
         let handler = matched.value;
 
         let iter = matched
@@ -96,7 +111,9 @@ impl<'c> AlbRouter<'c> {
             .map(|(key, val)| (key.to_owned(), vec![val.to_owned()]));
 
         let params = HashMap::from_iter(iter);
+        debug!("params: {:?}", params);
         let event = request.with_path_parameters(params);
+        debug!("event.params: {:?}", event.path_parameters());
 
         handler(event).await
     }

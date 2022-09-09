@@ -3,6 +3,9 @@ use std::time;
 use aws_config::{meta::region::RegionProviderChain, SdkConfig};
 use aws_smithy_types::{timeout, tristate::TriState};
 use lambda_http::{http::StatusCode, Response};
+use serde_json::json;
+
+use crate::errors::AppError;
 
 pub fn setup_tracing() {
     let subscriber = tracing_subscriber::fmt()
@@ -34,6 +37,20 @@ pub async fn setup_sdk_config() -> SdkConfig {
 }
 
 pub fn response(status_code: StatusCode, body: String) -> Response<String> {
+    Response::builder()
+        .status(status_code)
+        .header("Content-Type", "application/json")
+        .body(body)
+        .unwrap()
+}
+
+pub fn internal_server_error(err: AppError) -> Response<String> {
+    let status_code = StatusCode::INTERNAL_SERVER_ERROR;
+    let status = status_code.as_u16();
+    let body = json!({
+        "status": status,
+        "error": err,
+    }).to_string();
     Response::builder()
         .status(status_code)
         .header("Content-Type", "application/json")

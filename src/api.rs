@@ -1,6 +1,7 @@
 use std::{collections::HashSet};
 
-use crate::utils::{response};
+use crate::errors::AppError;
+use crate::utils::{response,  internal_server_error};
 use crate::store::{SessionStore};
 use http::StatusCode;
 use lambda_http::{Request, RequestExt, Response};
@@ -122,7 +123,11 @@ pub async fn delete_user_sessions(
         }
     };
 
-    if session.username != event.path_parameters().first("username").unwrap() {
+    let username = match event.path_parameters().first("username") {
+        Some(username) => username.to_owned(),
+        None => return Ok(internal_server_error(AppError::new("missing username"))),
+    };
+    if session.username != username {
         return Ok(response(
             StatusCode::UNAUTHORIZED,
             json!({ "error": "Invalid session" }).to_string(),
@@ -192,4 +197,12 @@ pub async fn get_session(store: &SessionStore<'_>, event: Request) -> Result<Res
         })
         .to_string(),
     ))
+}
+
+#[instrument(skip(_store))]
+pub async fn health_check(_store: &SessionStore<'_>, event: Request) -> Result<Response<String>, E> {
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .body("".to_owned())
+        .unwrap())
 }
