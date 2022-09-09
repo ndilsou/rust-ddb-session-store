@@ -50,7 +50,35 @@ export class DdbSessionStoreStack extends cdk.Stack {
       vpc,
       internetFacing: true,
     });
-    const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
+
+    const sessionSvcFn = new lambda.Function(this, "AlbSessionServiceFn", {
+      code: Code.fromAsset("target/lambda/session-svc"),
+      runtime: lambda.Runtime.PROVIDED_AL2,
+      handler: "bootstrap",
+      functionName: "alb-rust-session-svc",
+      environment: {
+        TABLE_NAME: sessionTable.tableName,
+        RUST_LOG: "info",
+      },
+    });
+    sessionTable.grantReadWriteData(sessionSvcFn);
+
+    const listener = alb.addListener("Listener", {
+      port: 80,
+      defaultAction: elbv2.ListenerAction.fixedResponse(404),
+    });
+
+    listener.addTargets("GetSessionTarget", {
+      targets: [new targets.LambdaTarget(sessionSvcFn)],
+      conditions: [
+        elbv2.ListenerCondition.pathPatterns(["/sessions", "/sessions/*"]),
+      ],
+      priority: 1,
+      healthCheck: {
+        enabled: true,
+      },
+    });
+
     return alb;
   }
 
